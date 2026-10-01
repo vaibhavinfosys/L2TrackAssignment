@@ -1,0 +1,5 @@
+com\l2track\core\ConfigReader.class
+com\l2track\core\DriverFactory.class
+com\l2track\pages\BasePage.class
+com\l2track\pages\DownloadPage.class
+com\l2track\pages\UploadPage.class
