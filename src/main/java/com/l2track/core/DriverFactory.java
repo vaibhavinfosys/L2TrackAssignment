@@ -1,34 +1,95 @@
 package com.l2track.core;
 
+import com.l2track.utils.LoggerUtil;
 import io.github.bonigarcia.wdm.WebDriverManager;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.edge.EdgeDriver;
+import org.openqa.selenium.edge.EdgeOptions;
+import org.openqa.selenium.firefox.FirefoxDriver;
+import org.openqa.selenium.firefox.FirefoxOptions;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.Locale;
+import java.util.logging.Logger;
 
 public class DriverFactory {
-    private static ThreadLocal<WebDriver> driver = new ThreadLocal<>();
+    private static final Logger LOGGER = LoggerUtil.getLogger(DriverFactory.class);
+    private static final ThreadLocal<WebDriver> driver = new ThreadLocal<>();
 
     public static void initDriver(String downloadDir) {
-        if (driver.get() == null) {
-            WebDriverManager.chromedriver().setup();
-            ChromeOptions options = new ChromeOptions();
-            options.addArguments("--remote-allow-origins=*", "--no-sandbox");
-
-            Path p = Paths.get(downloadDir);
-            String dl = p.toAbsolutePath().toString();
-
-            HashMap<String, Object> prefs = new HashMap<>();
-            prefs.put("download.default_directory", dl);
-            prefs.put("download.prompt_for_download", false);
-            prefs.put("profile.default_content_settings.popups", 0);
-            options.setExperimentalOption("prefs", prefs);
-
-            driver.set(new ChromeDriver(options));
+        if (driver.get() != null) {
+            return;
         }
+
+        String browser = ConfigReader.get("browser");
+        if (browser == null || browser.trim().isEmpty()) {
+            browser = "chrome";
+        }
+
+        browser = browser.trim().toLowerCase(Locale.ENGLISH);
+        WebDriver webDriver;
+
+        switch (browser) {
+            case "firefox":
+                webDriver = createFirefoxDriver(downloadDir);
+                break;
+            case "edge":
+                webDriver = createEdgeDriver(downloadDir);
+                break;
+            case "chrome":
+            default:
+                webDriver = createChromeDriver(downloadDir);
+                break;
+        }
+
+        driver.set(webDriver);
+        LOGGER.info("Initialized browser: " + browser);
+    }
+
+    private static WebDriver createChromeDriver(String downloadDir) {
+        WebDriverManager.chromedriver().setup();
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments("--remote-allow-origins=*", "--no-sandbox");
+
+        HashMap<String, Object> prefs = new HashMap<>();
+        prefs.put("download.default_directory", getResolvedDir(downloadDir));
+        prefs.put("download.prompt_for_download", false);
+        prefs.put("profile.default_content_settings.popups", 0);
+        options.setExperimentalOption("prefs", prefs);
+
+        return new ChromeDriver(options);
+    }
+
+    private static WebDriver createFirefoxDriver(String downloadDir) {
+        WebDriverManager.firefoxdriver().setup();
+        FirefoxOptions options = new FirefoxOptions();
+        options.addPreference("browser.download.folderList", 2);
+        options.addPreference("browser.download.dir", getResolvedDir(downloadDir));
+        options.addPreference("browser.helperApps.neverAsk.saveToDisk", "text/plain, text/csv, application/zip, application/pdf");
+        options.addPreference("pdfjs.disabled", true);
+        return new FirefoxDriver(options);
+    }
+
+    private static WebDriver createEdgeDriver(String downloadDir) {
+        WebDriverManager.edgedriver().setup();
+        EdgeOptions options = new EdgeOptions();
+        HashMap<String, Object> prefs = new HashMap<>();
+        prefs.put("download.default_directory", getResolvedDir(downloadDir));
+        prefs.put("download.prompt_for_download", false);
+        prefs.put("profile.default_content_settings.popups", 0);
+        options.setExperimentalOption("prefs", prefs);
+        return new EdgeDriver(options);
+    }
+
+    private static String getResolvedDir(String downloadDir) {
+        Path path = Paths.get(downloadDir);
+        if (!path.isAbsolute()) {
+            path = Paths.get(System.getProperty("user.dir"), downloadDir);
+        }
+        return path.toAbsolutePath().toString();
     }
 
     public static WebDriver getDriver() {
@@ -37,6 +98,7 @@ public class DriverFactory {
 
     public static void quitDriver() {
         if (driver.get() != null) {
+            LOGGER.info("Quitting browser session.");
             driver.get().quit();
             driver.remove();
         }

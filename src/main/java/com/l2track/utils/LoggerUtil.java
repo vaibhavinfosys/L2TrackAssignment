@@ -4,21 +4,32 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.FileHandler;
+import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
 public final class LoggerUtil {
     private static final Logger ROOT_LOGGER = Logger.getLogger("L2TrackAssignment");
+    private static final AtomicBoolean INITIALIZED = new AtomicBoolean(false);
 
     private LoggerUtil() {
     }
 
     static {
+        initializeRootLogger();
+    }
+
+    private static void initializeRootLogger() {
+        if (!INITIALIZED.compareAndSet(false, true)) {
+            return;
+        }
+
         try {
-            Path logDir = Paths.get("target", "logs");
+            Path logDir = Paths.get(System.getProperty("user.dir"), "target", "logs");
             Files.createDirectories(logDir);
 
             Path logFile = logDir.resolve("l2track.log");
@@ -43,9 +54,13 @@ public final class LoggerUtil {
         Logger logger = Logger.getLogger(clazz.getName());
         logger.setUseParentHandlers(false);
         logger.setLevel(ROOT_LOGGER.getLevel());
-        for (var handler : ROOT_LOGGER.getHandlers()) {
-            logger.addHandler(handler);
+
+        if (logger.getHandlers().length == 0) {
+            for (Handler handler : ROOT_LOGGER.getHandlers()) {
+                logger.addHandler(handler);
+            }
         }
+
         return logger;
     }
 
