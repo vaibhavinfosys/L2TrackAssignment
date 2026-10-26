@@ -30,14 +30,6 @@ public class BaseTest {
             resolvedDownloadDir = Paths.get(System.getProperty("user.dir"), "target", "downloads");
         }
 
-        if (!Files.exists(resolvedDownloadDir)) {
-            try {
-                Files.createDirectories(resolvedDownloadDir);
-            } catch (Exception e) {
-                throw new RuntimeException("Could not create download directory: " + resolvedDownloadDir, e);
-            }
-        }
-
         DriverFactory.initDriver(resolvedDownloadDir.toString());
         driver = DriverFactory.getDriver();
         driver.manage().window().maximize();
@@ -50,15 +42,14 @@ public class BaseTest {
         try {
             Path projectRoot = Paths.get(System.getProperty("user.dir"));
             Path testDataDir = projectRoot.resolve("src/test/resources/testdata");
-            if (!Files.exists(testDataDir)) {
-                Files.createDirectories(testDataDir);
+
+            if (Files.exists(testDataDir)) {
+                Path zipPath = testDataDir.resolve("sample.zip");
+                ZipUtils.ensureZipContainsTestFiles(zipPath, testDataDir);
+
+                Path excel = testDataDir.resolve("testdata.xlsx");
+                ExcelUtils.ensureSampleExcel(excel);
             }
-
-            Path zipPath = testDataDir.resolve("sample.zip");
-            ZipUtils.ensureZipContainsTestFiles(zipPath, testDataDir);
-
-            Path excel = testDataDir.resolve("testdata.xlsx");
-            ExcelUtils.ensureSampleExcel(excel);
         } catch (Exception e) {
             throw new RuntimeException("Failed to prepare test data files", e);
         }
